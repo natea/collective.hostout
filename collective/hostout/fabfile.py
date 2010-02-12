@@ -25,8 +25,8 @@ def _createuser(buildout_user='buildout'):
     set(fab_key_filename=keyname)
 
 
-def resetpermissions():
-    """Ensure ownership and permissions are correct on buildout and cache """
+def setowners():
+    """ reset file ownership on server """
     hostout = get('hostout')
     set(
         dist_dir = hostout.getDownloadCache(),
@@ -45,7 +45,7 @@ def resetpermissions():
 
 
 def predeploy():
-    """Install buildout and its dependencies if needed. Hookpoint for plugins"""
+    """Perform any initial plugin tasks. Call bootstrap if needed"""
 
     #run('export http_proxy=localhost:8123') # TODO get this from setting
     
@@ -62,7 +62,7 @@ def predeploy():
     api.env['user'] = api.env['effective-user']
 
 def bootstrap():
-    """Install python and users needed to run buildout"""
+    """Install python,users and buildout"""
     hostout = api.env['hostout']
 
 #    effectiveuser=hostout.effective_user
@@ -104,7 +104,7 @@ def bootstrap():
 
 
 def uploadeggs():
-    """Any develop eggs are released as eggs and uploaded to the server """
+    """Release developer eggs and send to host """
     
     hostout = api.env['hostout']
 
@@ -127,7 +127,7 @@ def uploadeggs():
             api.run("mv -f %(tmp)s %(tgt)s && chmod a+r %(tgt)s" % locals() )
 
 def uploadbuildout():
-    """Upload buildout pinned to local picked versions + uploaded eggs """
+    """Upload buildout pinned version of buildouts to host """
     hostout = api.env.hostout
 
     package = hostout.getHostoutPackage()

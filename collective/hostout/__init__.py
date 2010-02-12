@@ -260,7 +260,10 @@ class Recipe:
             for dep in sorted(deps):
                 if project_name == dep:
                     continue
-                dver, ddeps = versions.get(dep)
+                if versions.get(dep):
+                    dver, ddeps = versions.get(dep)
+                else:
+                    dver = 'Unknown'
                 spec+='# Required by %s %s\n' % (dep, dver) #versions[dep][0])
             if version != '0.0':
                 spec+='%s = %s' % (project_name,version)+'\n'
