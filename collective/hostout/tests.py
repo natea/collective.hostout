@@ -46,11 +46,11 @@ def _connect():
     
 
 class LocalSSH(ServerInterface, Thread):
-    def __init__(self):
+    def __init__(self, port=10022):
         Thread.__init__(self)
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.socket.bind(('127.0.0.1', 10022))
+        self.socket.bind(('127.0.0.1', port))
         self.key = ssh.RSAKey.generate(1024)
 
     def run(self):

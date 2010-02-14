@@ -21,7 +21,7 @@ import fabric
 import tarfile
 import ConfigParser
 import sys
-import md5
+from hashlib import md5
 import os
 from zc.buildout import buildout
 from os.path import join, exists

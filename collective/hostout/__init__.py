@@ -12,15 +12,12 @@
 #
 ##############################################################################
 
-import logging, os, shutil, tempfile, urllib2, urlparse
+import logging, os,  tempfile, urllib2, urlparse
 import setuptools.archive_util
 import datetime
-import sha
-import shutil
 import zc.buildout
 import zc.recipe.egg
 from os.path import join
-import os
 from os.path import dirname, abspath
 import ConfigParser
 from zc.buildout.buildout import Options, _recipe, _install_and_load
@@ -155,8 +152,11 @@ class Recipe:
         config.write(fp)
         fp.close()
         self.update()
+        
+        if self.options.get('mainhostout') is not None:
+            installed = installed +  self.script.install()
 
-        return installed + [self.optionsfile]
+        return installed + [self.optionsfile] 
 
     def update(self):
         installed = []
@@ -169,7 +169,7 @@ class Recipe:
 
 
         if self.options.get('mainhostout') is not None:
-            self.script.install()
+            installed = installed + self.script.update()
 
         config = ConfigParser.RawConfigParser()
         config.optionxform = str
@@ -199,7 +199,8 @@ class Recipe:
         fp = open(self.optionsfile, 'w+')
         config.write(fp)
         fp.close()
-        return installed+ [self.optionsfile]
+        
+        return installed+ [self.optionsfile] 
 
 
 
@@ -224,7 +225,8 @@ class Recipe:
             spec, entry = _recipe({'recipe':recipe})
             req = pkg_resources.Requirement.parse(spec)
             dist = pkg_resources.working_set.find(req)
-
+            if "collective.hostout" in spec:
+                continue #HACK
             requirements, ws = egg.working_set()
             for dist in [dist] + [d for d in ws]:
                 old_version,dep = versions.get(dist.project_name,('',[]))

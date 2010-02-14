@@ -47,7 +47,7 @@ Valid commands are:
    deploy           : predeploy, uploadeggs, uploadbuildout, buildout and then postdeploy
    postdeploy       : Perform any final plugin tasks
    predeploy        : Install buildout and its dependencies if needed. Hookpoint for plugins
-   resetpermissions : Ensure ownership and permissions are correct on buildout and cache
+   setowners        : Ensure ownership and permissions are correct on buildout and cache
    run              : Execute cmd on remote as login user
    sudo             : Execute cmd on remote as root user
    uploadbuildout   : Upload buildout pinned to local picked versions + uploaded eggs
@@ -109,7 +109,7 @@ to our buildout as well.
 >>> write('example', 'example.py',
 ... """
 ... def run():
-...    print "example"
+...    print "all your hosts are belong to us!!!"
 ...
 ... """)
 
@@ -119,7 +119,7 @@ to our buildout as well.
 ...
 ... setup(
 ...     name = "example",
-...     entry_points = {'default': ['mkdir = mkdir:Mkdir']},
+...     entry_points = {'default': ['run = example:run']},
 ...     )
 ... """)
 
@@ -268,162 +268,8 @@ and merge any fabfiles and other configuration options from that recipe into
 your current hostout configuration. The following are examples of builtin
 plugins others are available on pypi.
 
-collective.hostout:supervisor
------------------------------
-This recipe is an example of a hostout plugin. It will set pre and post commands to stop and then 
-restart supervisor after the deployment. It takes the following options
-
->>> write('buildout.cfg',
-... """
-... [buildout]
-... parts = host1
-...
-... [host1]
-... recipe = collective.hostout
-... host = 127.0.0.1:10022
-... password = root
-... extends = collective.hostout:supervisor
-... supervisor = supervisor
-... init.d = True
-...
-... """)
-
->>> print system('bin/buildout -N')
-    Uninstalling host1.
-    Uninstalling example.
-    Installing host1.
-
->>> print system('bin/hostout host1')
-    cmdline is: bin/hostout host1 [host2...] [all] cmd1 [cmd2...] [arg1 arg2...]
-    Valid commands are:
-    ...
-       installonstartup   : Installs supervisor into your init.d scripts in order to ensure that supervisor is started on boot
-    ...
-       supervisorctl      : Takes command line arguments and runs supervisorctl on the remote host
-       supervisorshutdown : Shutdown the supervisor daemon
-       supervisorstartup  : Start the supervisor daemon
-    ...
- 
-The following options maybe used
-
-supervisor
-  The name of the supervisor part to stop and restart
-  
-init.d
-  If set the supervisord script will be linked into init.d so any machine restart will also
-  start supervisor
-
-In addition supervisor plugin will shutdown supervisor during pre-deployment and startup
-supervisor during post-deployment.
-
->>> print system('bin/hostout host1 deploy')
-    Hostout: Running command 'predeploy' from '/.../collective/hostout/supervisor/fabfile.py'
-    Logging into the following hosts as :
-        127.0.0.1
-    [127.0.0.1] sudo: /var/lib/plone/host1/bin/supervisorctl shutdown || echo 'Failed to shutdown'
-    ...
-    Hostout: Running command 'postdeploy' from '/.../collective/hostout/supervisor/fabfile.py'
-    ...
-    [127.0.0.1] sudo: /var/lib/plone/host1/bin/supervisord
-    ...
-    [127.0.0.1] sudo: /var/lib/plone/host1/bin/supervisorctl status
-    ...
-    Hostout: Running command 'postdeploy' from '.../collective.hostout/collective/hostout/fabfile.py'
-    ...
-
-
-collective.hostout:mrdeveloper
-------------------------------
-if you include this extension your hostout deployment will fail if you have any uncommited modifications
-
->>> write('buildout.cfg',
-... """
-... [buildout]
-... parts = host1 example
-... extensions =
-...    mr.developer
-... sources = sources
-... sources-dir = .
-... auto-checkout = example
-... [sources]
-... example = fs example
-...
-... [example]
-... recipe = zc.recipe.egg
-... eggs = example
-...
-... [host1]
-... recipe = collective.hostout
-... host = 127.0.0.1:10022
-... password = root
-... extends = collective.hostout:mrdeveloper
-...
-... """ )
-
->>> print system('bin/buildout -N')
-    mr.developer: Filesystem package 'example' doesn't need a checkout.
-    Develop: '/sample-buildout/./example'
-    Uninstalling host1.
-    Installing _mr.developer.
-    Getting distribution for 'elementtree'.
-    Got elementtree 1.2.6-20050316.
-    Generated script '/sample-buildout/bin/develop'.
-    Installing example.
-    Installing host1.
-
-
-#>>> print system('bin/hostout host1 deploy')
-Package 'example1' has been modified.
-Hostout aborted
-
-
-collective.hostout:ubuntu
--------------------------
-(NOT CURRENTLY IMPLEMENTED)
-if you include this extension native ubuntu packages will be used on your remote host instead 
-of the more generic plone unified installer.
-
-**Warning: this will change your system packages as needed to get the correct python version**
-
-
-collective.hostout.datafs 
--------------------------
-(NOT IMPLEMENTED)
-Adding this extension will provide addition commands for manipulating the ZODB database files
-of a zope or plone installation.
-
->>> write('buildout.cfg',
-... """
-... [buildout]
-... parts = host1
-...
-... [host1]
-... recipe = collective.hostout
-... host = localhost:10022
-... password = root
-... extends = collective.hostout:datafs
-... filestorage = 
-...    ${buildout:directory}/var/filestorage/Data01.fs
-...    ${buildout:directory}/var/filestorage/Data02.fs
-... 
-...
-... """ % globals())
-
-#>>> print system('bin/buildout -N')
-
-#>>> print system('bin/hostout host1 upload')
-This will overwrite the following filestorage files on your host.
-- var/filestorage/Data.fs
-Are you sure you want to do this [y/N]?
-
-#>>> print system('bin/hostout host1 download')
-This will overwrite the following filestorage files on your local buildout directory.
-- var/filestorage/Data.fs
-Are you sure you want to do this [y/N]?
-
-#>>> print system('bin/hostout host1 backup')
-Running repozo to create backup on remote server 'host1'
-...
+see hostout.cloud_, hostout.supervisor_, hostout.ubuntu_ or
+hostout.mrdeveloper_ for examples.
 
 
 Adding your own commands
@@ -526,6 +372,54 @@ between multiple hostout definitions
 #>>> print system('bin/hostout deploy')
 Invalid hostout hostouts are: prod staging
 
+Using hostout with a python2.4 buildout
+***************************************
+
+Hostout itself requires python2.6. However it is possible to use hostout with
+a buildout that requires python 2.4 by using buildout's support for different
+python interpretters.
+
+>>> write('buildout.cfg',
+... """
+... [buildout]
+... parts = host1
+...
+... [host1]
+... recipe = collective.hostout
+... host = 127.0.0.1:10022
+... python = python26
+...
+... [python26]
+... executalble = /path/to/your/python2.6/binary
+...
+... """ )
+
+or alternatively if you don't want to use your local python you can get buildoit to
+build it for you.
+
+
+>>> write('buildout.cfg',
+... """
+... [buildout]
+... parts = host1
+...
+... [host1]
+... recipe = collective.hostout
+... host = 127.0.0.1:10022
+... python = python26
+...
+... [python26]
+... recipe = zc.recipe.cmmi
+... url = http://www.python.org/ftp/python/2.6.1/Python-2.6.1.tgz
+... executable = ${buildout:directory}/parts/python/bin/python2.6
+... extra_options=
+...    --enable-unicode=ucs4
+...    --with-threads
+...    --with-readline
+...
+... """ )
+
+
 
 
 Detailed Hostout Options
@@ -557,20 +451,12 @@ fabfiles
 Todo list
 *********
 
-- use latest fabric and thus switch to python2.6
-
-- finish ubuntu bootstrap
-
 - plugins for database handling including backing up, moving between development, staging and production
   regardless of location.
   
-- plugins for cloud api's such as Amazon Ec2 or Rackspace Cloud
-
 - Integrate with SCM to tag all parts so deployments can be rolled back.
 
 - Handle basic rollback when no SCM exists, for instance when buildout fails.
-
-- Automatically setup host with password-less ssh login.
 
 - Help deploy DNS settings, possibly by hosting company specific plugins
 
