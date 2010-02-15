@@ -25,23 +25,28 @@ def _createuser(buildout_user='buildout'):
     set(fab_key_filename=keyname)
 
 
-def setowners():
-    """ reset file ownership on server """
-    hostout = get('hostout')
-    set(
-        dist_dir = hostout.getDownloadCache(),
-        effectiveuser=hostout.effective_user,
-        buildout_dir=hostout.remote_dir,
-        install_dir=os.path.split(hostout.remote_dir)[0],
-        instance=os.path.split(hostout.remote_dir)[1],
-        download_cache=hostout.getDownloadCache()
-    )
+def setowners():   
+    hostout = api.env.get('hostout')
+    owner = api.env['user']
+    effective = api.env['effective-user']
+    path = api.env.path
+    dl = hostout.getDownloadCache()
+    dist = os.path.join(dl, 'dist')
+    bc = hostout.getEggCache()
+    var = os.path.join(path, 'var')
+    
+    # What we want is for
+    # - login user to own the buildout and the cache.
+    # - effective user to be own the var dir + able to read buildout and cache.
+    
+    api.sudo('chown -R %(owner)s:%(owner)s %(path)s && '
+             ' chmod -R u+rw,g+r-w,o-rw %(path)s' % locals())
+    api.sudo('mkdir -p %(var)s && chown -R %(effective)s:%(owner)s %(var)s && '
+             ' chmod -R u+rw,g+wr,o-rw %(var)s ' % locals())
+    for cache in [dist,dl,bc]:
+        api.sudo('mkdir -p %(cache)s && chown -R %(owner)s:%(owner)s %(cache)s && '
+                 ' chmod -R u+rw,g+r-w,o-rw %(cache)s ' % locals())
 
-
-    sudo('sudo chmod -R a+rw  $(dist_dir)')
-    sudo(('sudo chmod -R a+rw  %(dc)s'
-         '') % dict(dc=hostout.getEggCache()))
-    sudo('sudo chown -R $(effectiveuser) $(install_dir)/$(instance)')
 
 
 def predeploy():

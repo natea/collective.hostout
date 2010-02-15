@@ -265,10 +265,10 @@ class HostOut:
             #fabric._load_default_settings()
 	    commands = load_fabfile(fabfile)
             sets.append((commands,fabfile))
+        allcmds = {}
+        for commands,fabfile in sets:
+            allcmds.update(commands)
         if cmds is None:
-            allcmds = {}
-            for commands,fabfile in sets:
-                allcmds.update(commands)
             return allcmds
 	api.env['hostout'] = self
 	api.env.update( self.options )
@@ -283,14 +283,21 @@ class HostOut:
 		   port=self.port,
 		   ))
 
+	inits = [(set.get('initcommand'),fabfile) for set,fabfile in sets if 'initcommand' in set]
 	for cmd in cmds:
+	    # Let plugins change host or user if they want
+	    for func,fabfile in inits:
+		func(cmd)
+		
 	    funcs = [(set.get(cmd),fabfile) for set,fabfile in sets if cmd in set]
 	    if not funcs:
 		host = api.env.host
 		print >> sys.stderr, "'%(cmd)s' is not a valid command for host '%(host)s'"%locals()
 		break
+	    
 	    for func,fabfile in funcs:
                 print "Hostout: Running command '%(cmd)s' from '%(fabfile)s'" % locals()
+		
 		    
 		api.env['host'] = api.env.hosts[0]
 		api.env['host_string']="%(user)s@%(host)s:%(port)s"%api.env
@@ -442,9 +449,9 @@ class Packages:
                                      'clean',
                                      'egg_info',
                                      '--tag-build','dev_'+hash,
-                                     #'sdist',
-                                     #'--formats=zip', #fix bizzare gztar truncation on windows
-                                      'bdist_egg',
+                                     'sdist',
+                                     '--formats=zip', #fix bizzare gztar truncation on windows
+                                     # 'bdist_egg',
                                      '--dist-dir',
                                      '%s'%localdist_dir,
                                       ]
@@ -617,9 +624,9 @@ def main(cfgfile, args):
         #        sys.excepthook(*sys.exc_info())
         #        # we might leave stale threads if we don't explicitly exit()
         #        return False
-        finally:
-            #disconnect_all()
-	    pass
+#        finally:
+#            #disconnect_all()
+#	    pass
 
 
 
