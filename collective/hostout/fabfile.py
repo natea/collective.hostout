@@ -1,7 +1,6 @@
 import os
 import os.path
-from fabric import api
-from fabric.api import sudo, run, get, put
+from fabric import api, contrib
 
 def _createuser(buildout_user='buildout'):
     """Creates a user account to run the buildout in"""
@@ -25,9 +24,22 @@ def _createuser(buildout_user='buildout'):
     set(fab_key_filename=keyname)
 
 
+def setaccess():
+
+    #Copy authorized keys to plone user:
+    key_filename, key = api.env.hostout.getIdentityKey()
+    #api.sudo("rm -rf ~%(owner)s/.ssh" % locals())
+    for owner in [api.env.user, api.env['buildout-user']]:
+        api.sudo("mkdir -p ~%(owner)s/.ssh" % locals())
+        contrib.files.append(key, '~%(owner)s/.ssh/authorized_keys'%locals(), use_sudo=True)
+        #    api.sudo("echo '%(key)s' > ~%(owner)s/.ssh/authorized_keys" % locals())
+        api.sudo("chown -R %(owner)s:%(owner)s ~%(owner)s/.ssh" % locals() )
+    
+
 def setowners():   
     hostout = api.env.get('hostout')
     owner = api.env['user']
+    buildout = api.env['buildout-user']
     effective = api.env['effective-user']
     path = api.env.path
     dl = hostout.getDownloadCache()
@@ -39,15 +51,25 @@ def setowners():
     # - login user to own the buildout and the cache.
     # - effective user to be own the var dir + able to read buildout and cache.
     
-    api.sudo('chown -R %(owner)s:%(owner)s %(path)s && '
+    api.sudo('chown -R %(buildout)s:%(buildout)s %(path)s && '
              ' chmod -R u+rw,g+r-w,o-rw %(path)s' % locals())
     api.sudo('mkdir -p %(var)s && chown -R %(effective)s:%(owner)s %(var)s && '
              ' chmod -R u+rw,g+wr,o-rw %(var)s ' % locals())
+    
     for cache in [dist,dl,bc]:
-        api.sudo('mkdir -p %(cache)s && chown -R %(owner)s:%(owner)s %(cache)s && '
-                 ' chmod -R u+rw,g+r-w,o-rw %(cache)s ' % locals())
+        #HACK Have to deal with a shared cache. maybe need some kind of group
+        api.sudo('mkdir -p %(cache)s && chown -R %(buildout)s:%(buildout)s %(cache)s && '
+                 ' chmod -R u+rw,a+r %(cache)s ' % locals())
 
 
+def initcommand(cmd):
+    if cmd in ['predeploy','uploadeggs','uploadbuildout','buildout','run']:
+        api.env.user = api.env['buildout-user']
+    else:
+        api.env.user = api.env.hostout.options['user']
+    key_filename, key = api.env.hostout.getIdentityKey()
+    api.env.key_filename = key_filename
+    
 
 def predeploy():
     """Perform any initial plugin tasks. Call bootstrap if needed"""
@@ -55,16 +77,15 @@ def predeploy():
     #run('export http_proxy=localhost:8123') # TODO get this from setting
     
     hostout = api.env['hostout']
-    try:
-        run('test -f %s/bin/buildout' % api.env.path)
-    except:
+    if not contrib.files.exists(api.env.path):
         bootstrap()
 
+    api.env.cwd = api.env.path
     for cmd in hostout.getPreCommands():
-        sudo('sh -c "%s"'%cmd)
+        api.sudo('sh -c "%s"'%cmd)
 
     #Login as user plone
-    api.env['user'] = api.env['effective-user']
+#    api.env['user'] = api.env['effective-user']
 
 def bootstrap():
     """Install python,users and buildout"""
@@ -84,17 +105,18 @@ def bootstrap():
     sudo(('mkdir -p %(dc)s && sudo chmod -R a+rw  %(dc)s') % dict(dc=hostout.getEggCache()) )
 
     #install prerequsites
-    sudo('which g++ || (sudo apt-get -ym update && sudo apt-get install -ym build-essential libssl-dev libreadline5-dev) || echo "not ubuntu"')
+    #sudo('which g++ || (sudo apt-get -ym update && sudo apt-get install -ym build-essential libssl-dev libreadline5-dev) || echo "not ubuntu"')
 
     #Download the unified installer if we don't have it
-    sudo('test -f %(buildout_dir)s/bin/buildout || '+
-         'test -f %(dist_dir)s/%(unified)s.tgz || '+
-         '( cd /tmp && '+
-         'wget  --continue %(unified_url)s '+
-         '&& sudo mv /tmp/%(unified)s.tgz %(dist_dir)s/%(unified)s.tgz '+
+    buildout_dir=api.env.path
+    sudo('test -f %(buildout_dir)s/bin/buildout || '
+         'test -f %(dist_dir)s/%(unified)s.tgz || '
+         '( cd /tmp && '
+         'wget  --continue %(unified_url)s '
+         '&& sudo mv /tmp/%(unified)s.tgz %(dist_dir)s/%(unified)s.tgz '
 #         '&& sudo chown %(effectiveuser)s %(dist_dir)s/%(unified)s.tgz '+
-        ')' % dict(unified=unified, unified_url=unified_url, buildout_dir=api.env.path)
-         )
+        ')' % locals() )
+         
     # untar and run unified installer
     sudo('test -f $(buildout_dir)/bin/buildout || '+
           '(cd /tmp && '+
@@ -113,27 +135,26 @@ def uploadeggs():
     
     hostout = api.env['hostout']
 
-#    effectiveuser=hostout.effective_user
-#    buildout_dir=hostout.remote_dir
-#    install_dir=os.path.split(hostout.remote_dir)[0]
-#    instance=os.path.split(hostout.remote_dir)[1]
-#    download_cache=hostout.getDownloadCache()
-
     #need to send package. cycledown servers, install it, run buildout, cycle up servers
 
     dl = hostout.getDownloadCache()
-    contents = api.run('ls %(dl)s'%locals())
+    contents = api.run('ls %(dl)s/dist'%locals()).split()
+    buildout = api.env['buildout-user']
 
     for pkg in hostout.localEggs():
-        if pkg not in contents:
-            tmp = os.path.join('/tmp', os.path.basename(pkg))
-            tgt = os.path.join(hostout.getDownloadCache(), 'dist', os.path.basename(pkg))
+        name = os.path.basename(pkg)
+        if name not in contents:
+            tmp = os.path.join('/tmp', name)
+            tgt = os.path.join(dl, 'dist', name)
             api.put(pkg, tmp)
-            api.run("mv -f %(tmp)s %(tgt)s && chmod a+r %(tgt)s" % locals() )
+            api.run("mv -f %(tmp)s %(tgt)s && "
+                    "chown %(buildout)s:%(buildout)s %(tgt)s && "
+                    "chmod a+r %(tgt)s" % locals() )
 
 def uploadbuildout():
     """Upload buildout pinned version of buildouts to host """
     hostout = api.env.hostout
+    buildout = api.env['buildout-user']
 
     package = hostout.getHostoutPackage()
     tmp = os.path.join('/tmp', os.path.basename(package))
@@ -152,34 +173,17 @@ def uploadbuildout():
          '--owner %(effectiveuser)s -xvf %(tgt)s '
          '--directory=%(install_dir)s' % locals())
     
-#    if hostout.getParts():
-#        parts = ' '.jos.path.oin(hostout.getParts())
- #       sudo('sudo -u $(effectiveuser) sh -c "cd $(install_dir) && bin/buildout -c $(hostout_file) install %s"' % parts)
-  #  else:
-    #Need to set home var for svn to work
-    # 
 
 def buildout():
     """Run the buildout on the remote server """
 
     hostout = api.env.hostout
-#    set(
-#        effectiveuser=hostout.effective_user,
-#        buildout_dir=hostout.remote_dir,
-#        install_dir=os.path.split(hostout.remote_dir)[0],
-#    )
-#    set(
-#        #fab_key_filename="buildout_dsa",
-#        dist_dir=hostout.dist_dir,
-#        install_dir=hostout.remote_dir,
-#    )
     hostout_file=hostout.getHostoutFile()
-    api.env.user = api.env['effective-user']
+    #api.env.user = api.env['effective-user']
     api.env.cwd = hostout.remote_dir
     api.run('bin/buildout -c %(hostout_file)s' % locals())
     #api.sudo('sudo -u $(effectiveuser) sh -c "export HOME=~$(effectiveuser) && cd $(install_dir) && bin/buildout -c $(hostout_file)"')
 
-#    run('cd $(install_dir) && $(reload_cmd)')
 #    sudo('chmod 600 .installed.cfg')
 #    sudo('find $(install_dir)  -type d -name var -exec chown -R $(effectiveuser) \{\} \;')
 #    sudo('find $(install_dir)  -type d -name LC_MESSAGES -exec chown -R $(effectiveuser) \{\} \;')
@@ -192,14 +196,18 @@ def postdeploy():
     
     hostout = api.env.get('hostout')
  
+    api.env.cwd = api.env.path
     for cmd in hostout.getPostCommands():
-        api.run('sh -c "%s"'%cmd)
+        api.sudo('sh -c "%s"'%cmd)
 
 def run(*cmd):
     """Execute cmd on remote as login user """
-    api.run('sh -c "cd %s && %s"'%(api.env.path,' '.join(cmd)))
+    api.env.cwd = api.env.path
+    api.run(' '.join(cmd))
 
 def sudo(*cmd):
     """Execute cmd on remote as root user """
-    api.sudo('sh -c "cd %s && %s"'%(api.env.path,' '.join(cmd)))
+    api.env.cwd = api.env.path
+    api.sudo(' '.join(cmd))
+
 

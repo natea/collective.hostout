@@ -37,6 +37,8 @@ from fabric.state import output
 import time, random, md5
 from collective.hostout import relpath
 import pkg_resources
+from setuptools import package_index
+from urllib import pathname2url
 
 
 """
@@ -403,11 +405,10 @@ class Packages:
 
     def getDistEggs(self):
 
-        res = {}
-
-        localdist_dir = self.dist_dir
-        eggs = pkg_resources.find_distributions(localdist_dir)
+        eggs = pkg_resources.find_distributions(self.dist_dir)
         return dict([(( egg.project_name,egg.version),egg) for egg in eggs])
+	#eggs = pkg_resources.Environment(self.dist_dir)
+        #return dict([(( egg.project_name,egg.version),egg) for egg in eggs])
 
 
     def release_eggs(self):
@@ -420,7 +421,8 @@ class Packages:
 
         #python setup.py sdist bdist_egg
  #       tmpdir = tempfile.mkdtemp()
-        localdist_dir = self.dist_dir
+	localdist_dir = tempfile.mkdtemp()
+	
         eggs = self.getDistEggs()
 
         donepackages = []
@@ -441,7 +443,7 @@ class Packages:
                 egg = eggs.get( (dist.project_name, dist.version) )
             else:
                 egg = None
-            if egg is not None and hash in dist.version:
+            if egg and hash in dist.version:
                 self.local_eggs[dist.project_name] = (dist.project_name, dist.version, egg.location)
             elif os.path.isdir(path):
                 print "Hostout: Develop egg %s changed. Releasing with hash %s" % (path,hash)
@@ -457,23 +459,35 @@ class Packages:
                                       ]
                 res = self.setup(args = args)
                 dist = self.find_distributions(path)
-                if len(dist):
-                    dist = dist[0]
-                    self.local_eggs[dist.project_name] = (dist.project_name, dist.version, None)
-                    released[dist.project_name] = dist.version
-                else:
+                if not len(dist):
                     raise "Error releasing egg at %s: No egg found after \n python setup.py %s" % (path, ' '.join(args))
+                dist = dist[0]
+		pkg = os.listdir(localdist_dir)[0]
+		loc = os.path.join(self.dist_dir, pkg)
+		if os.path.exists(loc):
+		    os.remove(loc)
+		shutil.move(os.path.join(localdist_dir, pkg), self.dist_dir)
+		
+                self.local_eggs[dist.project_name] = (dist.project_name, dist.version, loc)
+                #released[dist.project_name] = dist.version
             else:
 #                shutil.copy(path,localdist_dir)
                 self.local_eggs[path] = (None, None, path)
         if released:
-            eggs = self.getDistEggs()
+	    import pdb; pdb.set_trace()
+	    env = package_index.PackageIndex('file://'+pathname2url(localdist_dir))
+
+            #eggs = self.getDistEggs()
             for (name,version) in released.items():
-                egg = eggs.get( (name, version) )
-                if egg is not None:
+		
+		req  = pkg_resources.Requirement.parse("%(name)s==%(version)s"%locals())
+		env.prescan()
+		egg = env.find_packages(req)
+                #egg = eggs.get( (name, version) )
+                if egg:
                     self.local_eggs[name] = (name, version, egg.location)
                 else:
-                    raise "Egg wasn't generated. See errors above"
+                    raise Exception("%(name)s wasn't generated. See errors above" % locals())
 
 
         if self.local_eggs:
@@ -588,6 +602,7 @@ def main(cfgfile, args):
                 cmds += [arg]
                 continue
             pos = 'args'
+
         if pos == 'args' and arg is not None:
             cmdargs += [arg]
 
@@ -613,7 +628,7 @@ def main(cfgfile, args):
         try:
 	    for host, hostout in hosts:
 	        hostout.readsshconfig()
-		hostout.runfabric(cmds)
+		hostout.runfabric(cmds, cmdargs)
             print("Done.")
         except SystemExit:
             # a number of internal functions might raise this one.

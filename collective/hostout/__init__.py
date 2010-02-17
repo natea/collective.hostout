@@ -34,15 +34,11 @@ class Recipe:
         
         self.name, self.options, self.buildout = name, options, buildout
 
-        #get all recipes here to make sure we're the last called
-        main = None
-        for part, recipe, opt in self.getAllRecipes():
-            if recipe == self.options['recipe']:
-                main = opt
-                if opt.get('mainhostout') == self.name:
-                    break
-        if main:
-            main['mainhostout'] = self.name
+        if not buildout['buildout'].get('hostout-main'):
+            buildout['buildout']['hostout-main'] = name
+            options['mainhostout'] = self.name
+            #get all recipes here to make sure we're the last called
+            self.getAllRecipes()
 
 
 
@@ -66,7 +62,8 @@ class Recipe:
         self.options.setdefault('buildout','buildout.cfg')
         self.options.setdefault('user','') #get default from .ssh/config
         self.options.setdefault('identity-file',self.options.get('identity_file',''))
-        self.options.setdefault('effective-user','plone')
+        self.options.setdefault('effective-user','nobody')
+        self.options.setdefault('buildout-user','buildout')
         self.options.setdefault('host', 'localhost')
         self.options.setdefault('password','')
         self.options.setdefault('post-commands', self.options.get('start_cmd',''))
