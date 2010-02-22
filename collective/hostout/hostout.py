@@ -217,6 +217,7 @@ class HostOut:
 
     def getIdentityKey(self):
         keyfile = os.path.abspath(os.path.join(self.getLocalBuildoutPath(),'hostout_rsa'))
+	keyfile = self.options.get('identity-file', keyfile)
         if not os.path.exists(keyfile):
             key = RSAKey.generate(1024)
             key.write_private_key_file(keyfile)
@@ -276,7 +277,7 @@ class HostOut:
 	api.env.update( self.options )
 	if self.password:
 	    api.env['password']=self.password
-	if self.identityfile:
+	if self.identityfile and os.path.exists(self.identityfile):
 	    api.env['key_filename']=self.identityfile
 
 	api.env.update( dict(
@@ -459,6 +460,7 @@ class Packages:
                                       ]
                 res = self.setup(args = args)
                 dist = self.find_distributions(path)
+		
                 if not len(dist):
                     raise "Error releasing egg at %s: No egg found after \n python setup.py %s" % (path, ' '.join(args))
                 dist = dist[0]

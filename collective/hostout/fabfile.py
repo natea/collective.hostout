@@ -31,9 +31,10 @@ def setaccess():
     #api.sudo("rm -rf ~%(owner)s/.ssh" % locals())
     for owner in [api.env.user, api.env['buildout-user']]:
         api.sudo("mkdir -p ~%(owner)s/.ssh" % locals())
+        api.sudo('touch ~%(owner)s/.ssh/authorized_keys'%locals() )
         contrib.files.append(key, '~%(owner)s/.ssh/authorized_keys'%locals(), use_sudo=True)
         #    api.sudo("echo '%(key)s' > ~%(owner)s/.ssh/authorized_keys" % locals())
-        api.sudo("chown -R %(owner)s:%(owner)s ~%(owner)s/.ssh" % locals() )
+        api.sudo("chown -R %(owner)s ~%(owner)s/.ssh" % locals() )
     
 
 def setowners():   
@@ -63,12 +64,13 @@ def setowners():
 
 
 def initcommand(cmd):
-    if cmd in ['predeploy','uploadeggs','uploadbuildout','buildout','run']:
+    if cmd in ['uploadeggs','uploadbuildout','buildout','run']:
         api.env.user = api.env['buildout-user']
     else:
         api.env.user = api.env.hostout.options['user']
-    key_filename, key = api.env.hostout.getIdentityKey()
-    api.env.key_filename = key_filename
+    key_filename = api.env['identity-file']
+    if os.path.exists(key_filename):
+        api.env.key_filename = key_filename
     
 
 def predeploy():
@@ -77,8 +79,9 @@ def predeploy():
     #run('export http_proxy=localhost:8123') # TODO get this from setting
     
     hostout = api.env['hostout']
-    if not contrib.files.exists(api.env.path):
-        bootstrap()
+    if not contrib.files.exists(api.env.path, use_sudo=True):
+        raise Exception("Generic bootstrap unimplemented. Look for plugins")
+        #bootstrap()
 
     api.env.cwd = api.env.path
     for cmd in hostout.getPreCommands():

@@ -21,7 +21,7 @@ def read(*rnames):
 name = "collective.hostout"
 setup(
     name = name,
-    version = "1.0a1",
+    version = "1.0a2",
     author = "Dylan Jay",
     author_email = "software@pretaweb.com",
     description = """collective.hostout will help you control multiple application environments
