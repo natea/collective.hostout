@@ -39,6 +39,8 @@ from collective.hostout import relpath
 import pkg_resources
 from setuptools import package_index
 from urllib import pathname2url
+from pkg_resources import resource_string, resource_filename
+
 
 
 """
@@ -116,7 +118,6 @@ class HostOut:
             install_base = os.path.dirname(self.getRemoteBuildoutPath())
             self.buildout_cache = os.path.join(install_base,'buildout-cache')
 
-        from pkg_resources import resource_string, resource_filename
         fabfile = resource_filename(__name__, 'fabfile.py')
 
         self.fabfiles = [p.strip() for p in opt.get('fabfiles','').split() if p.strip()] + [fabfile]
@@ -681,8 +682,8 @@ def load_fabfile(filename, **kwargs):
     
     """
     if not os.path.exists(filename):
-        _fail(kwargs, "Load failed:\n" + _indent(
-            "File not found: " + filename))
+        raise Exception("Load failed:\n" 
+            "File not found: " + filename)
         return
     
     #if filename in _LOADED_FABFILES:
