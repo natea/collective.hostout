@@ -42,6 +42,7 @@ def setowners():
     owner = api.env['user']
     buildout = api.env['buildout-user']
     effective = api.env['effective-user']
+    buildoutgroup = api.env['buildout-group']
     path = api.env.path
     dl = hostout.getDownloadCache()
     dist = os.path.join(dl, 'dist')
@@ -52,14 +53,15 @@ def setowners():
     # - login user to own the buildout and the cache.
     # - effective user to be own the var dir + able to read buildout and cache.
     
-    api.sudo('chown -R %(buildout)s:%(buildout)s %(path)s && '
+    api.sudo('chown -R %(buildout)s:%(buildoutgroup)s %(path)s && '
              ' chmod -R u+rw,g+r-w,o-rw %(path)s' % locals())
-    api.sudo('mkdir -p %(var)s && chown -R %(effective)s:%(owner)s %(var)s && '
+    api.sudo('chmod g+x `find %(path)s -perm -u+x`' % locals()) #so effective can execute code
+    api.sudo('mkdir -p %(var)s && chown -R %(effective)s:%(buildoutgroup)s %(var)s && '
              ' chmod -R u+rw,g+wr,o-rw %(var)s ' % locals())
     
     for cache in [dist,dl,bc]:
         #HACK Have to deal with a shared cache. maybe need some kind of group
-        api.sudo('mkdir -p %(cache)s && chown -R %(buildout)s:%(buildout)s %(cache)s && '
+        api.sudo('mkdir -p %(cache)s && chown -R %(buildout)s:%(buildoutgroup)s %(cache)s && '
                  ' chmod -R u+rw,a+r %(cache)s ' % locals())
 
 
@@ -79,13 +81,14 @@ def predeploy():
     #run('export http_proxy=localhost:8123') # TODO get this from setting
     
     hostout = api.env['hostout']
-    if not contrib.files.exists(api.env.path, use_sudo=True):
+    if not contrib.files.exists(hostout.options['path'], use_sudo=True):
         raise Exception("Generic bootstrap unimplemented. Look for plugins")
         #bootstrap()
 
     api.env.cwd = api.env.path
     for cmd in hostout.getPreCommands():
         api.sudo('sh -c "%s"'%cmd)
+    api.env.cwd = ''
 
     #Login as user plone
 #    api.env['user'] = api.env['effective-user']
@@ -93,12 +96,6 @@ def predeploy():
 def bootstrap():
     """Install python,users and buildout"""
     hostout = api.env['hostout']
-
-#    effectiveuser=hostout.effective_user
-#    buildout_dir=hostout.remote_dir
-#    install_dir=os.path.split(hostout.remote_dir)[0]
-#    instance=os.path.split(hostout.remote_dir)[1]
-#    download_cache=hostout.getDownloadCache()
 
 
     unified='Plone-3.2.1r3-UnifiedInstaller'
@@ -111,7 +108,8 @@ def bootstrap():
     #sudo('which g++ || (sudo apt-get -ym update && sudo apt-get install -ym build-essential libssl-dev libreadline5-dev) || echo "not ubuntu"')
 
     #Download the unified installer if we don't have it
-    buildout_dir=api.env.path
+    buildout_dir=api.env.hostout.options['path']
+    dist_dir = api.env.download_cache
     sudo('test -f %(buildout_dir)s/bin/buildout || '
          'test -f %(dist_dir)s/%(unified)s.tgz || '
          '( cd /tmp && '
@@ -121,15 +119,19 @@ def bootstrap():
         ')' % locals() )
          
     # untar and run unified installer
-    sudo('test -f $(buildout_dir)/bin/buildout || '+
+    install_dir, instance =os.path.split(buildout_dir)
+    effectiveuser = api.env['effective-user']
+    sudo(('test -f %(buildout_dir)s/bin/buildout || '+
           '(cd /tmp && '+
-          'tar -xvf $(dist_dir)/$(unified).tgz && '+
-          'test -d /tmp/$(unified) && '+
-          'cd /tmp/$(unified) && '+
-          'sudo mkdir -p  $(install_dir) && '+
-          'sudo ./install.sh --target=$(install_dir) --instance=$(instance) --user=$(effectiveuser) --nobuildout standalone && '+
-          'sudo chown -R $(effectiveuser) $(install_dir)/$(instance))'
+          'tar -xvf %(dist_dir)s/%(unified)s.tgz && '+
+          'test -d /tmp/%(unified)s && '+
+          'cd /tmp/%(unified)s && '+
+          'sudo mkdir -p  %(install_dir)s && '+
+          'sudo ./install.sh --target=%(install_dir)s --instance=%(instance)s --user=%(effectiveuser)s --nobuildout standalone && '+
+          'sudo chown -R %(effectiveuser)s %(install_dir)s/%(instance)s)') % locals()
           )
+    api.env.cwd = hostout.remote_dir
+    api.sudo('bin/buildout ')
 
 
 
@@ -151,7 +153,7 @@ def uploadeggs():
             tgt = os.path.join(dl, 'dist', name)
             api.put(pkg, tmp)
             api.run("mv -f %(tmp)s %(tgt)s && "
-                    "chown %(buildout)s:%(buildout)s %(tgt)s && "
+                    "chown %(buildout)s %(tgt)s && "
                     "chmod a+r %(tgt)s" % locals() )
 
 def uploadbuildout():

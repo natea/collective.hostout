@@ -85,13 +85,14 @@ def get_all_extends(cfgfile):
     return files
 
 class HostOut:
-    def __init__(self, name, opt, packages):
+    def __init__(self, name, opt, packages, hostouts):
 
         self.buildout_dir = packages.buildout_location
         self.dist_dir = packages.dist_dir
         self.packages = packages
         self.hostout_package = None
         self.options = opt
+	self.hostouts = hostouts
 
         self.name = name
         self.effective_user = opt['effective-user']
@@ -276,6 +277,7 @@ class HostOut:
             return allcmds
 	api.env['hostout'] = self
 	api.env.update( self.options )
+	#api.env.path = '' #HACK - path == cwd
 	if self.password:
 	    api.env['password']=self.password
 	if self.identityfile and os.path.exists(self.identityfile):
@@ -575,7 +577,7 @@ def main(cfgfile, args):
     for section in [s for s in config.sections() if s not in ['buildout', 'versions']]:
         options = dict(config.items(section))
 
-        hostout = HostOut(section, options, packages)
+        hostout = HostOut(section, options, packages, allhosts)
         allhosts[section] = hostout
 
     # cmdline is bin/hostout host1 host2 ... cmd1 cmd2 ... arg1 arg2...

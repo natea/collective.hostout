@@ -231,7 +231,17 @@ buildout
   from the buildout with the hostout section in. Defaults to buildout.cfg
 
 effective-user
-  The user which will own the buildout files. Defaults to #TODO
+  This user will own the buildouts var files. This allows the application to write to database files
+  in the var directory but not be allowed to write to any other part of teh buildout code.
+  
+buildout-user
+  The user which will own the buildout files. During bootstrap this user will be created and be given a ssh key
+  such that hostout can login and run buildout using this account.
+
+buildout-group
+  A group which will own the buildout files including the var files. This group is created if needed in the bootstrap
+  command.
+  
 
 path
   The absolute path on the remote host where the buildout will be created.

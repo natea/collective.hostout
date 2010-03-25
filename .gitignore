@@ -7,4 +7,5 @@ bin
 .installed.cfg
 develop-eggs
 setup.cfg
+parts
 

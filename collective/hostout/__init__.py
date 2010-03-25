@@ -66,6 +66,7 @@ class Recipe:
         self.options.setdefault('identity-file',self.options.get('identity_file',idfile))
         self.options.setdefault('effective-user','nobody')
         self.options.setdefault('buildout-user','buildout')
+        self.options.setdefault('buildout-group','buildout')
         self.options.setdefault('host', 'localhost')
         self.options.setdefault('password','')
         self.options.setdefault('post-commands', self.options.get('start_cmd',''))
@@ -119,7 +120,7 @@ class Recipe:
                     if key in ['fabfiles', 'pre-commands', 'post-commands']:
                         fabfiles = part[key].split()
                         self.options[key] = '\n'.join(self.options.get(key, '').split()+fabfiles)
-                    else:
+                    elif key not in self.options.keys():
                         self.options[key] = part[key]
         return seen
 
@@ -265,7 +266,7 @@ class Recipe:
                     dver, ddeps = versions.get(dep)
                 else:
                     dver = 'Unknown'
-                spec+='# Required by %s %s\n' % (dep, dver) #versions[dep][0])
+                spec+='# Required by %s \n' % (dep) #versions[dep][0])
             if version != '0.0':
                 spec+='%s = %s' % (project_name,version)+'\n'
             else:
