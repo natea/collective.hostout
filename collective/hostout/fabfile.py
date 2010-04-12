@@ -28,7 +28,6 @@ def setaccess():
 
     #Copy authorized keys to plone user:
     key_filename, key = api.env.hostout.getIdentityKey()
-    #api.sudo("rm -rf ~%(owner)s/.ssh" % locals())
     for owner in [api.env.user, api.env['buildout-user']]:
         api.sudo("mkdir -p ~%(owner)s/.ssh" % locals())
         api.sudo('touch ~%(owner)s/.ssh/authorized_keys'%locals() )
@@ -39,10 +38,19 @@ def setaccess():
 
 def setowners():   
     hostout = api.env.get('hostout')
-    owner = api.env['user']
     buildout = api.env['buildout-user']
     effective = api.env['effective-user']
     buildoutgroup = api.env['buildout-group']
+
+    owner = api.env['buildout-user']
+    effective = api.env['effective-user']
+    buildoutgroup = api.env['buildout-group']
+    
+    api.sudo('egrep %(owner)s /etc/passwd || adduser %(owner)s ' % locals())
+    api.sudo('egrep %(effective)s /etc/passwd || adduser %(effective)s' % locals())
+    api.sudo('gpasswd -a %(owner)s %(buildoutgroup)s' % locals())
+    api.sudo('gpasswd -a %(effective)s %(buildoutgroup)s' % locals())
+
     path = api.env.path
     dl = hostout.getDownloadCache()
     dist = os.path.join(dl, 'dist')
