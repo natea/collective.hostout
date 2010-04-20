@@ -84,6 +84,16 @@ def get_all_extends(cfgfile):
         files.extend(get_all_extends(extend))
     return files
 
+
+class DistributionGenerationException(Exception):
+    def __init__(self, path, args):
+        self.path = path
+	self.args = args
+	
+    def __str__(self):
+        return  "Error releasing egg at %s: No egg found after \n python setup.py %s" % (self.path, self.args)
+
+
 class HostOut:
     def __init__(self, name, opt, packages, hostouts):
 
@@ -464,8 +474,8 @@ class Packages:
                 res = self.setup(args = args)
                 dist = self.find_distributions(path)
 		
-                if not len(dist):
-                    raise "Error releasing egg at %s: No egg found after \n python setup.py %s" % (path, ' '.join(args))
+                if not len(dist) or not os.listdir(localdist_dir):
+		    raise DistributionGenerationException(path, args)
                 dist = dist[0]
 		pkg = os.listdir(localdist_dir)[0]
 		loc = os.path.join(self.dist_dir, pkg)

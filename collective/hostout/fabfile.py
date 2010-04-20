@@ -48,8 +48,11 @@ def setowners():
     
     api.sudo('egrep %(owner)s /etc/passwd || adduser %(owner)s ' % locals())
     api.sudo('egrep %(effective)s /etc/passwd || adduser %(effective)s' % locals())
+    api.sudo('groupadd %(buildoutgroup)s || echo "group exists"' % locals())    
     api.sudo('gpasswd -a %(owner)s %(buildoutgroup)s' % locals())
     api.sudo('gpasswd -a %(effective)s %(buildoutgroup)s' % locals())
+
+
 
     path = api.env.path
     dl = hostout.getDownloadCache()
@@ -97,6 +100,8 @@ def predeploy():
     for cmd in hostout.getPreCommands():
         api.sudo('sh -c "%s"'%cmd)
     api.env.cwd = ''
+
+
 
     #Login as user plone
 #    api.env['user'] = api.env['effective-user']
@@ -208,10 +213,18 @@ def postdeploy():
     """Perform any final plugin tasks """
     
     hostout = api.env.get('hostout')
+
+    api.env.cwd = api.env.path
+    hostout_file=hostout.getHostoutFile()
+    sudoparts = hostout.options.get('sudo-parts',None)
+    if sudoparts:
+        api.sudo('bin/buildout -c %(hostout_file)s install %(sudoparts)s' % locals())
+
  
     api.env.cwd = api.env.path
     for cmd in hostout.getPostCommands():
         api.sudo('sh -c "%s"'%cmd)
+
 
 def run(*cmd):
     """Execute cmd on remote as login user """

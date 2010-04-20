@@ -64,8 +64,8 @@ class Recipe:
         self.options.setdefault('hostname',name) #get default from .ssh/config
         idfile = os.path.join(self.buildout_dir,"%s_key"%options.get('hostname'))
         self.options.setdefault('identity-file',self.options.get('identity_file',idfile))
-        self.options.setdefault('effective-user',self.options['user'])
-        self.options.setdefault('buildout-user',self.options['effective-user'])
+        self.options.setdefault('buildout-user',self.options['user'])
+        self.options.setdefault('effective-user',self.options['buildout-user'])
         self.options.setdefault('buildout-group','buildout')
         self.options.setdefault('host', 'localhost')
         self.options.setdefault('password','')
