@@ -67,7 +67,7 @@ class Recipe:
         self.options.setdefault('buildout-user',self.options['user'])
         self.options.setdefault('effective-user',self.options['buildout-user'])
         self.options.setdefault('buildout-group','buildout')
-        self.options.setdefault('host', 'localhost')
+        self.options.setdefault('host', '')
         self.options.setdefault('password','')
         self.options.setdefault('post-commands', self.options.get('start_cmd',''))
         self.options.setdefault('pre-commands', self.options.get('stop_cmd', ''))

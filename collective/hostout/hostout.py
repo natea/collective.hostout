@@ -105,7 +105,6 @@ class HostOut:
 	self.hostouts = hostouts
 
         self.name = name
-        self.effective_user = opt['effective-user']
         self.remote_dir = opt['path']
 	try:
 	    self.host, self.port = opt['host'].split(':')
@@ -138,6 +137,7 @@ class HostOut:
         #if not os.path.exists(dist_dir):
         #    os.makedirs(dist_dir)
         #self.tar = None
+	self.sets = []
 
     def getHostoutFile(self):
         #make sure package has generated
@@ -202,7 +202,7 @@ class HostOut:
         config_file = os.path.abspath(os.path.join(self.packages.buildout_location,self.config_file))
         base = os.path.dirname(config_file)
         if not os.path.exists(config_file):
-            raise "Invalid config file"
+            raise Exception("Invalid config file")
 
         files = get_all_extends(config_file)
         files += self.getBuildoutDependencies()
@@ -266,6 +266,18 @@ class HostOut:
         if not self.user:
             self.user=opt.get('user','root')
 
+    def allcmds(self):
+	if self.sets:
+	    return self._allcmds
+        for fabfile in self.fabfiles:
+
+            #fabric._load_default_settings()
+	    commands = load_fabfile(fabfile)
+            self.sets.append((commands,fabfile))
+        self._allcmds = {}
+        for commands,fabfile in self.sets:
+            self._allcmds.update(commands)
+        return self._allcmds
 
 
     def runfabric(self, cmds=None, cmdargs=[]):
@@ -274,17 +286,11 @@ class HostOut:
         res = True
         ran = False
         #sets = [(fabric.COMMANDS,"<DEFAULT>")]
-	sets = []
-        for fabfile in self.fabfiles:
-
-            #fabric._load_default_settings()
-	    commands = load_fabfile(fabfile)
-            sets.append((commands,fabfile))
-        allcmds = {}
-        for commands,fabfile in sets:
-            allcmds.update(commands)
-        if cmds is None:
-            return allcmds
+	self.allcmds()
+	sets = self.sets
+	self.options['user'] = self.options['user'] or self.user or 'root'
+	self.options['effective-user'] = self.options['effective-user'] or self.user or 'root'
+	self.options['buildout-user'] = self.options['buildout-user'] or self.user or 'root'
 	api.env['hostout'] = self
 	api.env.update( self.options )
 	#api.env.path = '' #HACK - path == cwd
@@ -317,6 +323,7 @@ class HostOut:
 		    
 		api.env['host'] = api.env.hosts[0]
 		api.env['host_string']="%(user)s@%(host)s:%(port)s"%api.env
+		api.env.cwd = ''
 		output.debug = True
                 ran = True
 		if cmd == cmds[-1]:
@@ -329,7 +336,14 @@ class HostOut:
                     break
                 else:
                     res = True
-
+    
+    def __getattr__(self, name):
+	""" call all the methods by this name in fabfiles """
+	if name not in self.allcmds():
+	    raise AttributeError()
+	def run(*args):
+	    return self.runfabric([name], args)
+	return run
 
 #    def genhostout(self):
 #        """ generate a new buildout file which pins versions and uses our deployment distributions"""
@@ -608,7 +622,7 @@ def main(cfgfile, args):
 		allcmds = {'deploy':None}
         	for host,hostout in hosts:
 		    hostout.readsshconfig()
-		    allcmds.update(hostout.runfabric())
+		    allcmds.update(hostout.allcmds())
         if pos == 'cmds':
             if arg == 'deploy':
                 cmds += ['predeploy','uploadeggs','uploadbuildout','buildout','postdeploy']

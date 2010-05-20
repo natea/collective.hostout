@@ -78,7 +78,7 @@ def setowners():
 
 def initcommand(cmd):
     if cmd in ['uploadeggs','uploadbuildout','buildout','run']:
-        api.env.user = api.env['buildout-user']
+        api.env.user = api.env.hostout.options['buildout-user']
     else:
         api.env.user = api.env.hostout.options['user']
     key_filename = api.env['identity-file']
@@ -88,13 +88,21 @@ def initcommand(cmd):
 
 def predeploy():
     """Perform any initial plugin tasks. Call bootstrap if needed"""
+    hostout = api.env['hostout']
 
     #run('export http_proxy=localhost:8123') # TODO get this from setting
+
+    path = api.env.path
+    api.env.cwd = ''
+
+    #if not contrib.files.exists(hostout.options['path'], use_sudo=True):
+    try:
+        api.sudo("ls  %(path)s/bin/buildout " % locals(), pty=True)
+    except:
+        hostout.bootstrap()
+        hostout.setowners()
+        hostout.setaccess()
     
-    hostout = api.env['hostout']
-    if not contrib.files.exists(hostout.options['path'], use_sudo=True):
-        raise Exception("Generic bootstrap unimplemented. Look for plugins")
-        #bootstrap()
 
     api.env.cwd = api.env.path
     for cmd in hostout.getPreCommands():
@@ -106,9 +114,11 @@ def predeploy():
     #Login as user plone
 #    api.env['user'] = api.env['effective-user']
 
-def bootstrap():
+def _bootstrap():
     """Install python,users and buildout"""
     hostout = api.env['hostout']
+
+    raise Exception("Generic bootstrap unimplemented. Look for plugins")
 
 
     unified='Plone-3.2.1r3-UnifiedInstaller'
@@ -157,7 +167,7 @@ def uploadeggs():
 
     dl = hostout.getDownloadCache()
     contents = api.run('ls %(dl)s/dist'%locals()).split()
-    buildout = api.env['buildout-user']
+    buildout = api.env.hostout.options['buildout-user']
 
     for pkg in hostout.localEggs():
         name = os.path.basename(pkg)
@@ -185,8 +195,8 @@ def uploadbuildout():
         #sudo('chown $(effectiveuser) %s' % tgt)
 
 
-    effectiveuser=hostout.effective_user
-    install_dir=hostout.remote_dir
+    effectiveuser=hostout.options['effective-user']
+    install_dir=hostout.options['path']
     api.run('tar --no-same-permissions --no-same-owner --overwrite '
          '--owner %(effectiveuser)s -xvf %(tgt)s '
          '--directory=%(install_dir)s' % locals())
