@@ -25,6 +25,7 @@ def _createuser(buildout_user='buildout'):
 
 
 def setaccess():
+    """ setup password access for users """
 
     #Copy authorized keys to plone user:
     key_filename, key = api.env.hostout.getIdentityKey()
@@ -36,7 +37,8 @@ def setaccess():
         api.sudo("chown -R %(owner)s ~%(owner)s/.ssh" % locals() )
     
 
-def setowners():   
+def setowners():
+    """ Ensure ownership and permissions are correct on buildout and cache """
     hostout = api.env.get('hostout')
     buildout = api.env['buildout-user']
     effective = api.env['effective-user']

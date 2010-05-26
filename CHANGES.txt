@@ -1,12 +1,19 @@
 Release History
 ***************
 
-1.0a2
+1.0a2 (2010-05-27)
 ------------------
+- plugins can now call commands in other plugins
+- use buildout-user and buildout-group to increase security of hosted code
+- added setowners command to reset permissions
+- added setaccess command to setup passwordless access
+- moved hostout.ubuntu and hostout.supervisor to seperate plugins
+- introduced initcommand to set user to particular plugin
 - identify-file default to hostname_key so unique to host
 - usign sdist zips instead of eggs to make cross platform
+- python2.6 compatibility fixes
 
-1.0a1
+1.0a1 (2010-02-14)
 ------------------
 - switched to python2.6 and fabric0.9
 

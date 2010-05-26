@@ -47,6 +47,7 @@ Valid commands are:
    deploy           : predeploy, uploadeggs, uploadbuildout, buildout and then postdeploy
    postdeploy       : Perform any final plugin tasks
    predeploy        : Install buildout and its dependencies if needed. Hookpoint for plugins
+   setaccess        : setup password access for users 
    setowners        : Ensure ownership and permissions are correct on buildout and cache
    run              : Execute cmd on remote as login user
    sudo             : Execute cmd on remote as root user
@@ -160,7 +161,7 @@ The deploy command will login to your host and setup a buildout environment if i
 and installs the buildout. The deploy command is actually five commands
 
 predeploy
-  Bootstrap the server if needed.
+  Bootstrap the server if needed. Create needed users, groups and set permissions and passwordless access
   
 uploadeggs
   Any develop eggs are released as eggs and uploaded to the server
@@ -215,7 +216,15 @@ The buildout file used on the host pins pins the uploaded eggs
 Bootstrapping
 -------------
 
-Hostout has a builtin bootstrap command that is called if the predeploy command doesn't find buildout
+collective.hostout doesn't currently have a builtin bootstrap command as this is currently platform
+dependent. You can use extend your hostout from hostout.ubuntu
+
+[hostout]
+recipe = collective.hostout
+extends = hostout.ubuntu
+
+
+Hostout will call a bootstrap command if the predeploy command doesn't find buildout
 installed at the remote path.
 Bootstrap not only installs buildout but
 also installs the correct version of python, development tools, needed libraries and creates users needed to
@@ -254,6 +263,10 @@ pre-commands
 post-commands
   A series of shell commands executed as root after the buildout is run. You can use this 
   to startup your application. If these commands fail they will be ignored.
+  
+sudo-parts
+  Buildout parts which will be installed after the main buildout has been run. These will be run
+  as root.
 
 parts
   Runs the buildout with a parts value equal to this
@@ -460,6 +473,11 @@ fabfiles
 
 Todo list
 *********
+- import fabfiles so they don't produce warnings
+
+- use decorators for picking user for commands instead of initcommand hack
+
+- properly support inheritance and scope for command plugins
 
 - plugins for database handling including backing up, moving between development, staging and production
   regardless of location.
