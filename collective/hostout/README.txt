@@ -292,7 +292,11 @@ your current hostout configuration. The following are examples of builtin
 plugins others are available on pypi.
 
 see hostout.cloud_, hostout.supervisor_, hostout.ubuntu_ or
-hostout.mrdeveloper_ for examples.
+hostout.mrdeveloper for examples.
+
+.. _hostout.cloud: http://pypi.python.org/pypi/hostout.cloud
+.. _hostout.supervisor: http://pypi.python.org/pypi/hostout.supervisor
+.. _hostout.ubuntu: http://pypi.python.org/pypi/hostout.ubuntu
 
 
 Adding your own commands
