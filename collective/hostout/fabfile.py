@@ -48,9 +48,9 @@ def setowners():
     effective = api.env['effective-user']
     buildoutgroup = api.env['buildout-group']
     
-    api.sudo('egrep %(owner)s /etc/passwd || adduser %(owner)s ' % locals())
-    api.sudo('egrep %(effective)s /etc/passwd || adduser %(effective)s' % locals())
     api.sudo('groupadd %(buildoutgroup)s || echo "group exists"' % locals())    
+    api.sudo('egrep ^%(owner)s: /etc/passwd || useradd %(owner)s  ' % locals())
+    api.sudo('egrep ^%(effective)s: /etc/passwd || adduser %(effective)s' % locals())
     api.sudo('gpasswd -a %(owner)s %(buildoutgroup)s' % locals())
     api.sudo('gpasswd -a %(effective)s %(buildoutgroup)s' % locals())
 
@@ -69,6 +69,7 @@ def setowners():
     api.sudo('chown -R %(buildout)s:%(buildoutgroup)s %(path)s && '
              ' chmod -R u+rw,g+r-w,o-rw %(path)s' % locals())
     api.sudo('chmod g+x `find %(path)s -perm -u+x`' % locals()) #so effective can execute code
+    api.sudo('chmod g+s `find %(path)s -type d`' % locals()) # so new files will keep same group
     api.sudo('mkdir -p %(var)s && chown -R %(effective)s:%(buildoutgroup)s %(var)s && '
              ' chmod -R u+rw,g+wr,o-rw %(var)s ' % locals())
     
