@@ -1,6 +1,10 @@
 Release History
 ***************
 
+1.0a3 (??)
+----------
+- now using entrypoints for fabfiles
+
 1.0a2 (2010-05-27)
 ------------------
 - plugins can now call commands in other plugins

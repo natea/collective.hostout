@@ -21,7 +21,7 @@ def read(*rnames):
 name = "collective.hostout"
 setup(
     name = name,
-    version = "1.0a2",
+    version = "1.0a3",
     author = "Dylan Jay",
     author_email = "software@pretaweb.com",
     description = """collective.hostout will help you control multiple application environments
@@ -54,9 +54,9 @@ setup(
                         'Fabric',
                         'paramiko'
                         ],
-    entry_points = {'zc.buildout':
-                    ['default = collective.hostout:Recipe',],
+    entry_points = {'zc.buildout': ['default = collective.hostout:Recipe',],
                     'console_scripts': ['hostout = collective.hostout.hostout:main'],
+                    'fabric': ['fabfile = collective.hostout.fabfile']
                     },
     zip_safe = False,
     )

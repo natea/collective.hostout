@@ -128,9 +128,8 @@ class HostOut:
             install_base = os.path.dirname(self.getRemoteBuildoutPath())
             self.buildout_cache = os.path.join(install_base,'buildout-cache')
 
-        fabfile = resource_filename(__name__, 'fabfile.py')
 
-        self.fabfiles = [p.strip() for p in opt.get('fabfiles','').split() if p.strip()] + [fabfile]
+        self.fabfiles = [p.strip() for p in opt.get('fabfiles','').split() if p.strip()] 
 
         #self.packages = opt['packages']
         #dist_dir = os.path.abspath(os.path.join(self.buildout_location,self.dist_dir))
@@ -269,6 +268,7 @@ class HostOut:
     def allcmds(self):
 	if self.sets:
 	    return self._allcmds
+	self.sets.extend( findfabfiles() )
         for fabfile in self.fabfiles:
 
             #fabric._load_default_settings()
@@ -683,6 +683,27 @@ def is_task(tup):
         callable(func)
         and not name.startswith('_')
     )
+
+
+#
+# Use setuptools entry points to find the fabfiles in this env
+#
+def findfabfiles():
+    from pkg_resources import iter_entry_points
+    
+    fabfiles = []
+    for ep in iter_entry_points(
+	group='fabric',
+	# Use None to get all entry point names
+	name=None,
+    ):
+	imported = ep.load()
+	funcs = dict(filter(is_task, vars(imported).items()))
+	fabfiles.append( (funcs, ep.module_name) )
+	# ep.name doesn't matter
+    #print fabfiles
+    return fabfiles
+
 
 # Fabric load_fabfile uses __import__ which doesn't always load from path    
 import imp

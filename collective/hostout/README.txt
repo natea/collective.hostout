@@ -399,6 +399,21 @@ between multiple hostout definitions
 #>>> print system('bin/hostout deploy')
 Invalid hostout hostouts are: prod staging
 
+Making a hostout plugin
+***********************
+
+Hostout plugins are setuptools packages that have a zc.buildout recipe
+and a fabfile. The recipe is used to set defaults which will later get passed
+into the fabric environment.
+The fabric fabfile has to have an entrypoint in your setup.py file so hostout
+can find it. e.g.
+
+>>>    entry_points = {'zc.buildout': ['default = collective.hostout:Recipe',],
+...                    'fabric': ['fabfile = collective.hostout.fabfile']
+...                    },
+
+
+
 Using hostout with a python2.4 buildout
 ***************************************
 
