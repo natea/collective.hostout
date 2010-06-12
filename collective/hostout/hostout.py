@@ -105,23 +105,23 @@ class HostOut:
 	self.hostouts = hostouts
 
         self.name = name
-        self.remote_dir = opt['path']
+        self.remote_dir = opt.setdefault('path', '/var/lib/plone/%s'%name)
 	try:
 	    self.host, self.port = opt['host'].split(':')
 	    self.port = int(self.port)
 	except:
-            self.host = opt['host']
+            self.host = opt.get('host')
 	    self.port = 22
 	    
-        self.user = opt['user']
-        self.password = opt['password']
-        self.identityfile = opt['identity-file']
+        self.user = opt.get('user')
+        self.password = opt.get('password')
+        self.identityfile = opt.get('identity-file')
         self.start_cmd = opt.get('post-commands')
         self.stop_cmd = opt.get('pre-commands')
-        self.extra_config = opt['include']
-        self.buildout_cfg = [p.strip() for p in opt['buildout'].split() if p.strip()]
+        self.extra_config = opt.get('include')
+        self.buildout_cfg = [p.strip() for p in opt.get('buildout','buildout.cfg').split() if p.strip()]
         self.versions_part = opt.get('versions','versions')
-        self.parts = [p.strip() for p in opt['parts'].split() if p.strip()]
+        self.parts = [p.strip() for p in opt.get('parts','').split() if p.strip()]
         self.buildout_cache = opt.get('buildout-cache','')
 	opt['download_cache']= "%s/%s" % (self.buildout_cache, 'downloads')
         if not self.buildout_cache:
@@ -280,7 +280,7 @@ class HostOut:
         return self._allcmds
 
 
-    def runfabric(self, cmds=None, cmdargs=[]):
+    def runfabric(self, cmds=None, *cmdargs):
         "return all commands if none found to run"
 
         res = True
@@ -288,9 +288,9 @@ class HostOut:
         #sets = [(fabric.COMMANDS,"<DEFAULT>")]
 	self.allcmds()
 	sets = self.sets
-	self.options['user'] = self.options['user'] or self.user or 'root'
-	self.options['effective-user'] = self.options['effective-user'] or self.user or 'root'
-	self.options['buildout-user'] = self.options['buildout-user'] or self.user or 'root'
+	self.options['user'] = self.options.get('user') or self.user or 'root'
+	self.options['effective-user'] = self.options.get('effective-user') or self.user or 'root'
+	self.options['buildout-user'] = self.options.get('buildout-user') or self.user or 'root'
 	api.env['hostout'] = self
 	api.env.update( self.options )
 	#api.env.path = '' #HACK - path == cwd
@@ -305,31 +305,39 @@ class HostOut:
 		   port=self.port,
 		   ))
 
-	inits = [(set.get('initcommand'),fabfile) for set,fabfile in sets if 'initcommand' in set]
+	self.inits = [(set.get('initcommand'),fabfile) for set,fabfile in self.sets if 'initcommand' in set]
 	for cmd in cmds:
-	    # Let plugins change host or user if they want
-	    for func,fabfile in inits:
-		func(cmd)
+	    if cmd == cmds[-1]:
+	        self.runcommand(cmd, *cmdargs)
+	    else:
+	        self.runcommand(cmd)
 		
-	    funcs = [(set.get(cmd),fabfile) for set,fabfile in sets if cmd in set]
+		
+    def runcommand(self, cmd, *cmdargs):
+	    # Let plugins change host or user if they want
+	    for func,fabfile in self.inits:
+		func(cmd)
+
+	    funcs = [(set.get(cmd),fabfile) for set,fabfile in self.sets if cmd in set]
 	    if not funcs:
 		host = api.env.host
 		print >> sys.stderr, "'%(cmd)s' is not a valid command for host '%(host)s'"%locals()
-		break
+		return
 	    
 	    for func,fabfile in funcs:
+	
                 print "Hostout: Running command '%(cmd)s' from '%(fabfile)s'" % locals()
 		
+		key_filename = api.env.get('identity-file')
+		if key_filename and os.path.exists(key_filename):
+		    api.env.key_filename = key_filename
 		    
 		api.env['host'] = api.env.hosts[0]
 		api.env['host_string']="%(user)s@%(host)s:%(port)s"%api.env
 		api.env.cwd = ''
 		output.debug = True
                 ran = True
-		if cmd == cmds[-1]:
-		    res = func(*cmdargs)
-		else:
-		    res = func()
+		res = func(*cmdargs)
                 if res not in [None,True]:
                     print >> sys.stderr, "Hostout aborted"
                     res = False
@@ -342,7 +350,7 @@ class HostOut:
 	if name not in self.allcmds():
 	    raise AttributeError()
 	def run(*args):
-	    return self.runfabric([name], args)
+	    return self.runcommand(name, *args)
 	return run
 
 #    def genhostout(self):
@@ -624,10 +632,11 @@ def main(cfgfile, args):
 		    hostout.readsshconfig()
 		    allcmds.update(hostout.allcmds())
         if pos == 'cmds':
-            if arg == 'deploy':
-                cmds += ['predeploy','uploadeggs','uploadbuildout','buildout','postdeploy']
-                continue
-            elif arg in allcmds:
+            #if arg == 'deploy':
+            #    cmds += ['predeploy','uploadeggs','uploadbuildout','buildout','postdeploy']
+            #    continue
+            #el
+	    if arg in allcmds:
                 cmds += [arg]
                 continue
             pos = 'args'
@@ -657,7 +666,7 @@ def main(cfgfile, args):
         try:
 	    for host, hostout in hosts:
 	        hostout.readsshconfig()
-		hostout.runfabric(cmds, cmdargs)
+		hostout.runfabric(cmds, *cmdargs)
             print("Done.")
         except SystemExit:
             # a number of internal functions might raise this one.
@@ -781,5 +790,18 @@ def _dir_hash(paths):
     hash = base64.urlsafe_b64encode(hash.digest()).strip()
     hash = hash.replace('_','-').replace('=','')
     return hash
+
+
+from fabric import api
+class buildoutuser(object):
+
+    def __init__(self, f):
+        self.f = f
+
+    def __call__(self, *args, **vargs):
+	user = api.env.user
+        api.env.user = api.env.hostout.options['buildout-user']
+        self.f(*args, **vargs)
+	api.env.user = user
 
 

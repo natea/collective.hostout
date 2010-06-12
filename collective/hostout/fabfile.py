@@ -1,6 +1,7 @@
 import os
 import os.path
 from fabric import api, contrib
+from collective.hostout.hostout import buildoutuser
 
 def _createuser(buildout_user='buildout'):
     """Creates a user account to run the buildout in"""
@@ -84,10 +85,18 @@ def initcommand(cmd):
         api.env.user = api.env.hostout.options['buildout-user']
     else:
         api.env.user = api.env.hostout.options['user']
-    key_filename = api.env['identity-file']
-    if os.path.exists(key_filename):
+    key_filename = api.env.get('identity-file')
+    if key_filename and os.path.exists(key_filename):
         api.env.key_filename = key_filename
-    
+
+def deploy():
+    "predeploy, uploadeggs, uploadbuildout, buildout and then postdeploy"
+    hostout = api.env['hostout']
+    hostout.predeploy()
+    hostout.uploadeggs()
+    hostout.uploadbuildout()
+    hostout.buildout()
+    hostout.postdeploy()
 
 def predeploy():
     """Perform any initial plugin tasks. Call bootstrap if needed"""
@@ -160,7 +169,7 @@ def _bootstrap():
     api.sudo('bin/buildout ')
 
 
-
+@buildoutuser
 def uploadeggs():
     """Release developer eggs and send to host """
     
@@ -181,7 +190,7 @@ def uploadeggs():
             api.run("mv -f %(tmp)s %(tgt)s && "
                     "chown %(buildout)s %(tgt)s && "
                     "chmod a+r %(tgt)s" % locals() )
-
+@buildoutuser
 def uploadbuildout():
     """Upload buildout pinned version of buildouts to host """
     hostout = api.env.hostout
@@ -204,7 +213,7 @@ def uploadbuildout():
          '--owner %(effectiveuser)s -xvf %(tgt)s '
          '--directory=%(install_dir)s' % locals())
     
-
+@buildoutuser
 def buildout():
     """Run the buildout on the remote server """
 
@@ -238,7 +247,7 @@ def postdeploy():
     for cmd in hostout.getPostCommands():
         api.sudo('sh -c "%s"'%cmd)
 
-
+@buildoutuser
 def run(*cmd):
     """Execute cmd on remote as login user """
     api.env.cwd = api.env.path

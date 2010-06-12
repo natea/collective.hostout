@@ -25,7 +25,6 @@ import pkg_resources
 import sys
 
 
-
 class Recipe:
 
     def __init__(self, buildout, name, options):
