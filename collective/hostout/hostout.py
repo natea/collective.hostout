@@ -440,8 +440,12 @@ class Packages:
         self.local_eggs = {}
 
     def getDistEggs(self):
-
-        eggs = pkg_resources.find_distributions(self.dist_dir)
+	import pdb; pdb.set_trace()
+	files = os.listdir(self.dist_dir)
+	
+	eggs = []
+	for file in files:
+	    eggs += pkg_resources.find_distributions(os.path.join(self.dist_dir, file) )
         return dict([(( egg.project_name,egg.version),egg) for egg in eggs])
 	#eggs = pkg_resources.Environment(self.dist_dir)
         #return dict([(( egg.project_name,egg.version),egg) for egg in eggs])
@@ -459,7 +463,8 @@ class Packages:
  #       tmpdir = tempfile.mkdtemp()
 	localdist_dir = tempfile.mkdtemp()
 	
-        eggs = self.getDistEggs()
+        #eggs = self.getDistEggs()
+	eggs = os.listdir(self.dist_dir)
 
         donepackages = []
         ids = {}
@@ -473,14 +478,16 @@ class Packages:
             hash = _dir_hash([path])
             ids[hash]=path
             path = os.path.abspath(path)
-            dist = self.find_distributions(path)
+            dist = find_distributions(path)
+	    egg = None
             if len(dist):
                 dist = dist[0]
-                egg = eggs.get( (dist.project_name, dist.version) )
-            else:
-                egg = None
-            if egg and hash in dist.version:
-                self.local_eggs[dist.project_name] = (dist.project_name, dist.version, egg.location)
+		for file in eggs:
+		    if file.count(hash):
+			egg = os.path.join(self.dist_dir, file)
+			break
+	    if egg:
+		self.local_eggs[dist.project_name] = (dist.project_name, dist.version, egg)
             elif os.path.isdir(path):
                 print "Hostout: Develop egg %s changed. Releasing with hash %s" % (path,hash)
                 args=[path,
@@ -494,7 +501,7 @@ class Packages:
                                      '%s'%localdist_dir,
                                       ]
                 res = self.setup(args = args)
-                dist = self.find_distributions(path)
+                dist = find_distributions(path)
 		
                 if not len(dist) or not os.listdir(localdist_dir):
 		    raise DistributionGenerationException(path, args)
@@ -511,7 +518,6 @@ class Packages:
 #                shutil.copy(path,localdist_dir)
                 self.local_eggs[path] = (None, None, path)
         if released:
-	    import pdb; pdb.set_trace()
 	    env = package_index.PackageIndex('file://'+pathname2url(localdist_dir))
 
             #eggs = self.getDistEggs()
@@ -531,18 +537,6 @@ class Packages:
             specs = ["\t%s = %s"% (p,v) for p,v,e in self.local_eggs.values()]
             print "Hostout: Eggs to transport:\n%s" % '\n'.join(specs)
         return self.local_eggs
-
-    def find_distributions(self, path):
-        #HACK: need to parse setup.py instead assuming src
-        return [d for d in pkg_resources.find_distributions(path, only=True)] + \
-            [d for d in pkg_resources.find_distributions(os.path.join(path,'src'), only=True)]
-
-    def getVersion(self, path):
-        "Test to see if we already have a release of this developer egg"
-        dist = [d for d in pkg_resources.find_distributions(path, only=True)]
-        dist = dist[0]
-
-        return dist.version
 
     def writeVersions(self, versions_file, part):
 
@@ -776,6 +770,7 @@ def _dir_hash(paths):
     for path in paths:
         if os.path.isdir(path):
             walked = os.walk(path)
+	    #find_sources(path)
         else:
             walked = [(os.path.dirname(path), [], [os.path.basename(path)])]
         for (dirpath, dirnames, filenames) in walked:
@@ -790,6 +785,29 @@ def _dir_hash(paths):
     hash = base64.urlsafe_b64encode(hash.digest()).strip()
     hash = hash.replace('_','-').replace('=','')
     return hash
+
+from setuptools.command.egg_info import manifest_maker
+
+def find_sources(path):
+	import pdb; pdb.set_trace()
+	dist = find_distributions(path)[0]
+        mm = manifest_maker(dist)
+        mm.manifest = None
+        mm.run()
+        return mm.filelist
+    
+
+def find_distributions(path):
+        #HACK: need to parse setup.py instead assuming src
+        return [d for d in pkg_resources.find_distributions(path, only=True)] + \
+            [d for d in pkg_resources.find_distributions(os.path.join(path,'src'), only=True)]
+
+def getVersion(path):
+        "Test to see if we already have a release of this developer egg"
+        dist = [d for d in pkg_resources.find_distributions(path, only=True)]
+        dist = dist[0]
+
+        return dist.version
 
 
 from fabric import api
