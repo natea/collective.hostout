@@ -3,34 +3,27 @@ import os.path
 from fabric import api, contrib
 from collective.hostout.hostout import buildoutuser
 
-def _createuser(buildout_user='buildout'):
-    """Creates a user account to run the buildout in"""
-    #keyname="buildout_dsa.%s"%(buildout_host)
-    #if not os.path.exists(keyname):
-    if True:
-        sudo('test -d ~$(buildout_user) || adduser $(buildout_user)')
-        sudo('test -d ~$(buildout_user)/.ssh || mkdir ~$(buildout_user)/.ssh;')
-        sudo('(chmod 700 ~$(buildout_user)/.ssh; touch ~$(buildout_user)/.ssh/authorized_keys)')
-        sudo('chmod 600 ~$(buildout_user)/.ssh/authorized_keys')
-        #run("rm -f /tmp/buildout_dsa")
-        #run("ssh-keygen -t dsa -N '' -f /tmp/buildout_dsa")
-        #run('rm ~$(buildout_user)/.ssh/buildout_dsa.pub')
-        #try:
-        #    download('/tmp/buildout_dsa','buildout_dsa')
-        #    download('/tmp/buildout_dsa.pub','buildout_dsa.pub')
-        #except:
-        #    pass
-        sudo('cp ~$(buildout_user)/.ssh/authorized_keys ~$(buildout_user)/.ssh/authorized_keys.bak')
-        sudo('cat /tmp/buildout_dsa.pub >> ~$(buildout_user)/.ssh/authorized_keys')
-    set(fab_key_filename=keyname)
+
+def setupusers():
+    """ create users if needed """
+
+    hostout = api.env.get('hostout')
+    buildout = api.env['buildout-user']
+    effective = api.env['effective-user']
+    buildoutgroup = api.env['buildout-group']
+    owner = buildout
+    
+    api.sudo('groupadd %(buildoutgroup)s || echo "group exists"' % locals())
+    addopt = "--no-user-group -M -g %(buildoutgroup)s" % locals()
+    api.sudo('egrep ^%(owner)s: /etc/passwd || useradd %(owner)s %(addopt)s' % locals())
+    api.sudo('egrep ^%(effective)s: /etc/passwd || useradd %(effective)s %(addopt)s' % locals())
+    api.sudo('gpasswd -a %(owner)s %(buildoutgroup)s' % locals())
+    api.sudo('gpasswd -a %(effective)s %(buildoutgroup)s' % locals())
 
 
-def setaccess():
-    """ setup password access for users """
-
-    #Copy authorized keys to plone user:
+    #Copy authorized keys to buildout user:
     key_filename, key = api.env.hostout.getIdentityKey()
-    for owner in [api.env.user, api.env['buildout-user']]:
+    for owner in [api.env['buildout-user']]:
         api.sudo("mkdir -p ~%(owner)s/.ssh" % locals())
         api.sudo('touch ~%(owner)s/.ssh/authorized_keys'%locals() )
         contrib.files.append(key, '~%(owner)s/.ssh/authorized_keys'%locals(), use_sudo=True)
@@ -44,17 +37,7 @@ def setowners():
     buildout = api.env['buildout-user']
     effective = api.env['effective-user']
     buildoutgroup = api.env['buildout-group']
-
-    owner = api.env['buildout-user']
-    effective = api.env['effective-user']
-    buildoutgroup = api.env['buildout-group']
-    
-    api.sudo('groupadd %(buildoutgroup)s || echo "group exists"' % locals())    
-    api.sudo('egrep ^%(owner)s: /etc/passwd || useradd %(owner)s  ' % locals())
-    api.sudo('egrep ^%(effective)s: /etc/passwd || adduser %(effective)s' % locals())
-    api.sudo('gpasswd -a %(owner)s %(buildoutgroup)s' % locals())
-    api.sudo('gpasswd -a %(effective)s %(buildoutgroup)s' % locals())
-
+    owner = buildout
 
 
     path = api.env.path
@@ -112,8 +95,6 @@ def predeploy():
         api.sudo("ls  %(path)s/bin/buildout " % locals(), pty=True)
     except:
         hostout.bootstrap()
-        hostout.setowners()
-        hostout.setaccess()
     
 
     api.env.cwd = api.env.path

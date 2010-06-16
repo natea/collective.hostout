@@ -4,7 +4,8 @@ Release History
 
 1.0a4 (??)
 ----------
-- using decorators got setting user
+- using decorators for setting user used for command
+- cleaned up user adding code. renamed to setupusers
 
 1.0a3 (??)
 ----------
