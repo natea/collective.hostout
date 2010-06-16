@@ -72,7 +72,7 @@ def setowners():
     api.sudo('chmod g+x `find %(path)s -perm -u+x`' % locals()) #so effective can execute code
     api.sudo('chmod g+s `find %(path)s -type d`' % locals()) # so new files will keep same group
     api.sudo('mkdir -p %(var)s && chown -R %(effective)s:%(buildoutgroup)s %(var)s && '
-             ' chmod -R u+rw,g+wr,o-rw %(var)s ' % locals())
+             ' chmod -R u+rw,g+wrs,o-rw %(var)s ' % locals())
     
     for cache in [dist,dl,bc]:
         #HACK Have to deal with a shared cache. maybe need some kind of group

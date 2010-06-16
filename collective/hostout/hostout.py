@@ -382,7 +382,11 @@ class HostOut:
         config.read([path])
         if 'buildout' not in config.sections():
             config.add_section('buildout')
-	files = [self.options['versionsfile']] + self.buildout_cfg
+	if self.options['versionsfile']:
+	    files = [self.options['versionsfile']]
+	else:
+	    files = []
+	files = files + self.buildout_cfg
         files = [relpath(file, base) for file in files]
 
         config.set('buildout', 'extends', ' '.join(files))
@@ -426,11 +430,12 @@ from zc.buildout.buildout import pkg_resources_loc
 class Packages:
     """ responsible for packaging the development eggs ready to be released to each host"""
 
-    def __init__(self, config):
-        self.packages = packages = [p for p in config.get('buildout','packages').split()]
+    def __init__(self, buildout):
+	
+	self.packages = packages = [p for p in buildout.get('packages','').split()]
 
-        self.buildout_location = config.get('buildout', 'location')
-        self.dist_dir = config.get('buildout','dist_dir')
+        self.buildout_location = buildout.get('location','')
+        self.dist_dir = buildout.get('dist_dir','')
 #        self.versions = dict(config.items('versions'))
         self.tar = None
         dist_dir = os.path.abspath(os.path.join(self.buildout_location,self.dist_dir))
@@ -487,7 +492,11 @@ class Packages:
 			egg = os.path.join(self.dist_dir, file)
 			break
 	    if egg:
-		self.local_eggs[dist.project_name] = (dist.project_name, dist.version, egg)
+		#HACK should get out of zip file
+		version = dist.version
+		version += 'dev' not in dist.version and 'dev' or ''
+		version += hash not in dist.version and '-'+hash or ''
+		self.local_eggs[dist.project_name] = (dist.project_name, version, egg)
             elif os.path.isdir(path):
                 print "Hostout: Develop egg %s changed. Releasing with hash %s" % (path,hash)
                 args=[path,
@@ -596,7 +605,7 @@ def main(cfgfile, args):
     files = [cfgfile]
     allhosts = {}
 #    buildout = Buildout(config.get('buildout','buildout'),[])
-    packages = Packages(config)
+    packages = Packages(dict(config.items('buildout')))
     #eggs = packages.release_eggs()
     # 
         
@@ -652,8 +661,6 @@ def main(cfgfile, args):
 	    print >> sys.stderr, '  ', name.ljust(max_name_len),
 	    if fn.__doc__:
 		print >> sys.stderr, ':', fn.__doc__.splitlines()[0]
-	    elif name == 'deploy':
-		print >> sys.stderr, ':', 'predeploy, uploadeggs, uploadbuildout, buildout and then postdeploy'
 	    else:
 	        print >> sys.stderr, ''
     else:

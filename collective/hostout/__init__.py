@@ -29,7 +29,7 @@ class Recipe:
 
     def __init__(self, buildout, name, options):
 
-        self.egg = zc.recipe.egg.Egg(buildout, options['recipe'], options)
+        #self.egg = zc.recipe.egg.Egg(buildout, options['recipe'], options)
         
         self.name, self.options, self.buildout = name, options, buildout
 
@@ -41,12 +41,12 @@ class Recipe:
 
 
 
-        self.buildout_dir = self.buildout.get('buildout').get('directory')
-        self.download_cache = self.buildout['buildout'].get('download-cache')
-        self.install_from_cache = self.buildout['buildout'].get('install-from-cache')
+        self.buildout_dir = self.buildout.get('buildout').get('directory','')
+        self.download_cache = self.buildout['buildout'].get('download-cache','')
+        self.install_from_cache = self.buildout['buildout'].get('install-from-cache','')
         self.options['versions'] = self.buildout['buildout'].get('versions','versions')
         self.options['location'] = os.path.join(
-            self.buildout['buildout']['parts-directory'],
+            self.buildout['buildout'].get('parts-directory',''),
             'hostout',
             )
         self.optionsfile = join(self.options['location'],'hostout.cfg')
@@ -81,7 +81,6 @@ class Recipe:
         self.options['arguments']="'%s',sys.argv[1:]"%self.optionsfile
         self.options['scripts'] = 'hostout'
         self.options['eggs'] = '\n'.join(self.options.get('eggs','').split() + ['collective.hostout'])
-        self.script = zc.recipe.egg.Scripts(buildout, options['recipe'], options)
 
         version = '.'.join([str(i) for i in sys.version_info])
         self.options['python-version'] = options.get('python-version', version)
@@ -153,6 +152,7 @@ class Recipe:
         self.update()
         
         if self.options.get('mainhostout') is not None:
+            self.script = zc.recipe.egg.Scripts(self.buildout, self.options['recipe'], self.options)
             installed = installed +  self.script.install()
 
         return installed + [self.optionsfile] 
@@ -168,6 +168,7 @@ class Recipe:
 
 
         if self.options.get('mainhostout') is not None:
+            self.script = zc.recipe.egg.Scripts(self.buildout, self.options['recipe'], self.options)
             installed = installed + self.script.update()
 
         config = ConfigParser.RawConfigParser()
@@ -206,7 +207,7 @@ class Recipe:
     def getAllRecipes(self):
         recipes = []
 
-        for part in [p.strip() for p in self.buildout['buildout']['parts'].split()]:
+        for part in [p.strip() for p in self.buildout['buildout'].get('parts','').split()]:
             options = self.buildout.get(part) #HACK
             if options is None or not options.get('recipe'):
                 continue

@@ -1,6 +1,11 @@
 Release History
 ***************
 
+
+1.0a4 (??)
+----------
+- using decorators got setting user
+
 1.0a3 (??)
 ----------
 - now using entrypoints for fabfiles
