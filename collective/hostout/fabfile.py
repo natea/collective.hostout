@@ -77,6 +77,7 @@ def deploy():
     hostout = api.env['hostout']
     hostout.predeploy()
     hostout.uploadeggs()
+    hostout.setowners()
     hostout.uploadbuildout()
     hostout.buildout()
     hostout.postdeploy()
